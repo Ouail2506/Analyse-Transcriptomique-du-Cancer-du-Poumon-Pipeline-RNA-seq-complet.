@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pipeline RNA-seq : Cancer du Poumon</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🫁</text></svg>">
+    <style>
+        /* --- VARIABLES --- */
+        :root {
+            --primary: #2a226b;
+            --secondary: #ff0072;
+            --accent: #00b4d8;
+            --light-bg: #f8f9fa;
+            --dark-bg: #1a1a2e;
+            --text-light: #212529;
+            --text-dark: #f0f0f0;
+            --gray: #6c757d;
+            --border-light: #dee2e6;
+            --shadow-light: rgba(0, 0, 0, 0.1);
+        }
+
+        .dark-mode {
+            --primary: #8a83d6;
+            --secondary: #ff4d9e;
+            --accent: #00d4ff;
+            --light-bg: #232333;
+            --dark-bg: #f8f9fa;
+            --text-light: #f0f0f0;
+            --text-dark: #212529;
+            --gray: #adb5bd;
+            --border-light: #495057;
+            --shadow-light: rgba(255, 255, 255, 0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; font-size: 16px; }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: var(--light-bg);
+            color: var(--text-light);
+            line-height: 1.6;
+            transition: background-color 0.4s, color 0.4s;
+        }
+
+        /* --- LOGIN SCREEN --- */
+        .login-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, var(--primary) 0%, #5e5499 100%);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 2000; 
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+        .login-overlay.hidden { opacity: 0; visibility: hidden; }
+        
+        .login-container {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 2.5rem; border-radius: 15px; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            width: 100%; max-width: 400px; text-align: center;
+        }
+        .login-container h2 { color: #2a226b; margin-bottom: 1.5rem; font-family: 'Playfair Display', serif; }
+        .input-group { margin-bottom: 1.25rem; }
+        .input-group input { width: 100%; padding: 12px; border: 2px solid var(--border-light); border-radius: 8px; font-size: 1rem; }
+        .btn { padding: 12px 24px; background-color: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; transition: 0.3s; text-transform: uppercase; font-weight: 600; }
+        .btn:hover { background-color: #1a154a; transform: translateY(-2px); }
+
+        /* --- LAYOUT PRINCIPAL --- */
+        .main-content { display: none; opacity: 0; transition: opacity 0.8s; }
+        .main-content.show { display: block; opacity: 1; }
+
+        .content-container { 
+            margin-top: 140px; 
+            padding: 0 1rem;
+            max-width: 96%; 
+            margin-left: auto; 
+            margin-right: auto;
+        }
+
+        .content-section {
+            background: white;
+            padding: 3rem 4rem;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px var(--shadow-light);
+            border: 1px solid var(--border-light);
+            margin-bottom: 1.5rem;
+        }
+        .dark-mode .content-section { background: var(--light-bg); border-color: var(--border-light); }
+
+        .content-section h3, 
+        .work-plan h3,
+        .unified-title {
+            font-family: 'Playfair Display', serif;
+            color: var(--primary);
+            font-size: 1.6rem; 
+            font-weight: 600;
+            margin-bottom: 1.2rem; 
+            margin-top: 0.5rem;
+            padding-bottom: 0.4rem;
+            border-bottom: 2px solid var(--accent); 
+            display: inline-block;
+            width: auto;
+            line-height: 1.4;
+        }
+
+        /* --- STYLES SPÉCIFIQUES PIPELINE (Style Page 2) --- */
+        .pipeline-step { 
+            margin-bottom: 2rem; 
+            padding: 1.5rem; 
+            border: 1px solid var(--border-light); 
+            border-radius: 8px; 
+            background-color: rgba(0,0,0,0.02); 
+            transition: transform 0.3s ease;
+        }
+        .dark-mode .pipeline-step { background-color: rgba(255,255,255,0.03); }
+        .pipeline-step:hover { box-shadow: 0 5px 15px var(--shadow-light); }
+        
+        .pipeline-step h4 { 
+            font-size: 1.3rem; margin-bottom: 1rem; 
+            color: var(--primary); font-family: 'Playfair Display', serif;
+        }
+        .pipeline-step p { font-size: 1rem; margin-bottom: 0.8rem; text-align: justify;}
+        
+        .pipeline-step img { 
+            max-width: 100%; height: auto; display: block; margin: 1rem auto;
+            border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            cursor: pointer; transition: transform 0.3s;
+        }
+        .pipeline-step img:hover { transform: scale(1.02); }
+
+        .figure-caption { text-align: center; font-style: italic; color: var(--gray); font-size: 0.9rem; margin-top: 10px; }
+
+        /* --- PLAN DE TRAVAIL CENTRÉ --- */
+        .work-plan { 
+            background: white; 
+            padding: 3rem; 
+            border-radius: 12px;
+            border: 1px solid var(--border-light);
+            margin: 2rem auto; 
+            max-width: 800px; 
+            text-align: center;
+            box-shadow: 0 5px 20px var(--shadow-light);
+        }
+        .dark-mode .work-plan { background: var(--light-bg); border-color: var(--border-light); }
+
+        /* --- NAVBAR --- */
+        .navbar {
+            position: fixed; top: 0; left: 0; width: 100%;
+            background: var(--light-bg); 
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+            z-index: 900; padding: 0.5rem 2rem;
+        }
+        .navbar-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+        .logo { display: flex; align-items: center; }
+        .logo img { height: 60px; margin-right: 15px; }
+        .logo-text { font-family: 'Playfair Display', serif; font-weight: 700; color: var(--primary); font-size: 1.4rem; }
+        
+        .navbar-controls { display: flex; align-items: center; gap: 15px; }
+        .lang-select { padding: 5px 10px; border-radius: 5px; border: 1px solid var(--border-light); background: transparent; color: var(--text-light); cursor: pointer; font-weight: 500; }
+
+        .navbar-bottom { display: flex; align-items: center; overflow-x: auto; padding-bottom: 5px; }
+        .nav-tabs { display: flex; list-style: none; gap: 10px; margin: 0 auto; }
+        .nav-tabs a {
+            text-decoration: none; color: var(--gray); font-weight: 500; padding: 8px 15px;
+            border-radius: 5px; transition: 0.3s; display: flex; align-items: center; gap: 8px; white-space: nowrap; font-size: 0.9rem;
+        }
+        .nav-tabs a:hover, .nav-tabs a.active { color: var(--primary); background-color: rgba(0,0,0,0.05); }
+        .dark-mode .nav-tabs a:hover, .dark-mode .nav-tabs a.active { background-color: rgba(255,255,255,0.1); }
+
+        .search-container { position: relative; margin-right: auto; }
+        .search-input { padding: 6px 12px 6px 30px; border-radius: 20px; border: 1px solid var(--border-light); width: 200px; }
+        .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--gray); font-size: 0.8rem;}
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.6s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* --- ELEMENTS INTERNES --- */
+        .institution-header { display: flex; justify-content: space-between; align-items: center; text-align: center; margin-bottom: 2rem; padding: 1rem 0; border-bottom: 1px solid var(--border-light); }
+        .institution-text-content { flex-grow: 1; font-size: 0.9rem; font-weight: 600; color: var(--text-light); line-height: 1.4; }
+        .institution-side-logo { height: 90px; width: auto; object-fit: contain; }
+        
+        .title-page {
+            text-align: center; padding: 3rem 2rem;
+            background: linear-gradient(135deg, #e0f7fa 0%, #f0f4c3 100%);
+            border-radius: 15px; margin-bottom: 2.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.05); color: #333;
+        }
+        .dark-mode .title-page { background: linear-gradient(135deg, #1f2a38 0%, #2c3e50 100%); color: #fff; }
+        .title-page h2 { font-family: 'Playfair Display', serif; font-size: 1.8rem; color: var(--primary); margin-bottom: 1rem; line-height: 1.3; }
+        .promo { display: inline-block; background: var(--primary); color: white; padding: 5px 20px; border-radius: 20px; font-weight: bold; font-size: 0.9rem; margin-top: 10px;}
+
+        .styled-list { list-style: none; padding-left: 0; }
+        .styled-list li { margin-bottom: 0.8rem; padding-left: 2rem; position: relative; font-weight: 500; }
+        .styled-list li::before { content: '➤'; color: var(--accent); position: absolute; left: 0; top: 0; }
+
+        /* Split Layout */
+        .split-layout { display: flex; flex-wrap: wrap; gap: 2rem; align-items: flex-start; }
+        .text-side { flex: 1; min-width: 300px; }
+        .image-side { flex: 0 0 350px; max-width: 100%; }
+        .styled-image { width: 100%; height: auto; border: 1px solid #ddd; padding: 5px; border-radius: 4px; cursor: pointer; transition: transform 0.3s; }
+        .styled-image:hover { transform: scale(1.02); }
+        figcaption { text-align: center; font-size: 0.9rem; color: #666; margin-top: 8px; font-style: italic; font-weight: 600; }
+
+        .intro-text, .pipeline-text { text-indent: 2rem; text-align: justify; line-height: 1.8; margin-bottom: 1.5rem; }
+        .highlight-box { background-color: rgba(42, 34, 107, 0.04); border-left: 5px solid var(--primary); padding: 1.5rem; margin-top: 2rem; }
+        .highlight-box p { text-indent: 0; margin: 0; font-weight: 500; color: var(--primary); text-align: justify; }
+
+        /* MODAL pour images */
+        .info-modal {
+            display: none; position: fixed; z-index: 3000; left: 0; top: 0;
+            width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.8);
+            align-items: center; justify-content: center; backdrop-filter: blur(5px);
+        }
+        .info-modal-content {
+            background-color: var(--light-bg); margin: auto; padding: 20px;
+            border-radius: 10px; max-width: 90%; max-height: 90vh;
+            text-align: center; position: relative;
+        }
+        .info-modal-image { max-width: 100%; max-height: 80vh; object-fit: contain; }
+        .info-modal-close {
+            position: absolute; top: 10px; right: 20px; color: var(--gray);
+            font-size: 30px; font-weight: bold; cursor: pointer;
+        }
+
+        .highlight { color: var(--secondary); font-weight: bold; }
+        
+        button { background: none; border: none; cursor: pointer; color: var(--gray); font-size: 1.1rem; transition: 0.3s; }
+        button:hover { color: var(--primary); }
+
+        @media (max-width: 992px) {
+            .navbar { padding: 0.5rem 1rem; }
+            .content-container { margin-top: 180px; padding: 0; }
+            .content-section { padding: 2rem 1.5rem; }
+            .institution-header { flex-direction: column; gap: 15px; }
+            .nav-tabs { flex-wrap: wrap; justify-content: center; }
+            .image-side { flex: 100%; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Login Overlay -->
+    <div class="login-overlay" id="loginScreen">
+        <div class="login-container" id="loginContainerForm">
+            <h2 data-i18n="login_title">Accès au Projet</h2>
+            <div class="input-group">
+                <input type="text" id="username" placeholder="Nom d'utilisateur">
+            </div>
+            <div class="input-group">
+                <input type="password" id="password" placeholder="Mot de passe">
+            </div>
+            <button class="btn" onclick="login()" data-i18n="login_btn">Se connecter</button>
+        </div>
+    </div>
+
+    <!-- Modal pour Images -->
+    <div id="infoModal" class="info-modal">
+        <div class="info-modal-content">
+            <span class="info-modal-close" onclick="closeInfoModal()">×</span>
+            <h3 id="infoModalTitle" style="color:var(--primary); margin-bottom:10px;"></h3>
+            <img id="infoModalImage" class="info-modal-image" src="" alt="Zoom">
+            <p id="infoModalCaption" style="margin-top:10px; font-style:italic;"></p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content" id="mainContent">
+        <nav class="navbar">
+            <div class="navbar-top">
+                <div class="logo">
+                    <img src="Logo hor.jpg" alt="Logo Université">
+                    <span class="logo-text">UFMC I</span>
+                </div>
+                <div class="navbar-controls">
+                    <select id="langSwitcher" class="lang-select" onchange="changeLanguage(this.value)">
+                        <option value="fr">FR</option>
+                        <option value="en">EN</option>
+                    </select>
+                    <button id="darkModeToggle" title="Mode Sombre"><i class="fas fa-moon"></i></button>
+                    <button onclick="location.reload()" title="Déconnexion"><i class="fas fa-sign-out-alt"></i></button>
+                </div>
+            </div>
+            <div class="navbar-bottom">
+                <div class="search-container">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" class="search-input" placeholder="Rechercher..." id="searchInput">
+                </div>
+                <!-- Navigation Tabs -->
+                <ul class="nav-tabs">
+                    <li><a href="#home" class="active" onclick="activateTab('home')" data-i18n="nav_home"><i class="fas fa-home"></i> Accueil</a></li>
+                    <li><a href="#intro" onclick="activateTab('intro')" data-i18n="nav_intro"><i class="fas fa-book-open"></i> Généralité</a></li>
+                    <li><a href="#pipeline" onclick="activateTab('pipeline')" data-i18n="nav_pipeline"><i class="fas fa-project-diagram"></i> Pipeline Projet</a></li>
+                    <li><a href="#conclusion" onclick="activateTab('conclusion')" data-i18n="nav_conclusion"><i class="fas fa-check-circle"></i> Conclusion</a></li>
+                    <li><a href="#references" onclick="activateTab('references')" data-i18n="nav_refs"><i class="fas fa-book"></i> Références</a></li>
+                </ul>
+            </div>
+        </nav>
+
+        <div class="content-container">
+            
+            <!-- SECTION ACCUEIL -->
+            <section id="home" class="tab-content active">
+                <div class="institution-header">
+                    <img src="logo.png" alt="Logo Gauche" class="institution-side-logo">
+                    <div class="institution-text-content">
+                        <div data-i18n="header_republic">République Algérienne Démocratique et Populaire</div>
+                        <div data-i18n="header_ministry">Ministère de l'Enseignement Supérieur et de la Recherche Scientifique</div>
+                        <div data-i18n="header_univ">Université Frères Mentouri Constantine 1</div>
+                        <div data-i18n="header_faculty">Faculté des Sciences de la Nature et de la Vie</div>
+                        <div data-i18n="header_dept">Département de Biologie Appliquée</div>
+                    </div>
+                    <img src="logo.png" alt="Logo Droite" class="institution-side-logo">
+                </div>
+
+                <div class="title-page">
+                    <h2 data-i18n="project_title">Analyse Transcriptomique du Cancer du Poumon : Pipeline RNA-seq complet.</h2>
+                    <h4 style="font-weight:400; font-size:1.1rem; color: var(--gray);" data-i18n="project_subtitle">(Analyse comparative du transcriptome entre tissus tumoraux et tissus pulmonaires sains).</h4>
+                    <div class="authors-section">
+                        <span data-i18n="presented_by">Présenté par :</span>
+                        <div class="authors-names">
+                            <strong>Benmeggoura Rahma</strong><br>
+                            <strong>Azara Nourhane</strong>
+                        </div>
+                        <div class="promo">Promo 2026</div>
+                    </div>
+                </div>
+
+                <!-- PLAN DE TRAVAIL CENTRÉ -->
+                <div class="work-plan">
+                    <h3 data-i18n="plan_title">Plan de travail :</h3>
+                    <ul class="styled-list">
+                        <li data-i18n="plan_1">Introduction & Généralités sur le Cancer du Poumon</li>
+                        <li data-i18n="plan_2">Définitions & Pipeline Bioinformatique</li>
+                        <li data-i18n="plan_3">Objectif du Projet (Données SRP211816)</li>
+                        <li data-i18n="plan_4">Analyse d'Expression Différentielle (DESeq2)</li>
+                        <li data-i18n="plan_5">Contrôle Qualité et Visualisation des Données</li>
+                        <li data-i18n="plan_6">Analyse d'Enrichissement Fonctionnel (GO & Enrichr)</li>
+                        <li data-i18n="plan_7">Conclusion</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- SECTION INTRODUCTION (Généralités) -->
+            <section id="intro" class="tab-content">
+                <div class="content-section">
+                    <h3 data-i18n="intro_title">Introduction</h3>
+                    
+                    <p class="intro-text" data-i18n="intro_p1">
+                        Le cancer du poumon est la tumeur maligne la plus courante et la principale cause de décès liée au cancer dans le monde entier.
+                    </p>
+                    <p class="intro-text" data-i18n="intro_p2">
+                        Les études d'expression génique sont un outil important pour l'analyse transcriptomique d'un organisme qui aide à quantifier les niveaux d'expression des gènes dans des conditions normales et pathologiques. Les profils d'expression génique de deux conditions différentes (pathologique versus normal) peuvent être comparés pour révéler des régulateurs clés potentiels ou des gènes différentiellement exprimés (DEG).
+                    </p>
+                    <div class="highlight-box">
+                        <p data-i18n="intro_p4">
+                            Notre étude repose sur l’utilisation de plusieurs outils bioinformatiques pour extraire et analyser un ensemble de données et identifier les DEG associés au cancer bronchique.
+                        </p>
+                    </div>
+
+                    <hr style="margin: 3rem 0; border-top: 1px solid #eee;">
+
+                    <!-- Partie Définition et Image -->
+                    <div class="split-layout">
+                        <div class="text-side">
+                            <h3 class="unified-title" data-i18n="def_title">Définition :</h3>
+                            <p class="intro-text" data-i18n="lung_cancer_def">
+                                Le cancer du poumon, également connu sous le nom de cancer bronchique ou cancer broncho-pulmonaire, est une maladie des cellules des bronches ou plus rarement des cellules qui tapissent les alvéoles pulmonaires. Il résulte de la prolifération incontrôlée d'une seule cellule qui, en se multipliant, forme éventuellement une tumeur qui n'envahit initialement que l'organe d'où elle a pris naissance.
+                            </p>
+                        </div>
+                        <div class="image-side">
+                            <figure>
+                                <img src="lung cancer.png" 
+                                    alt="Anatomie des poumons" 
+                                    class="styled-image"
+                                    onclick="openInfoModal('lung cancer.png', 'Figure 01: Anatomie des poumons [9].')">
+                                <figcaption data-i18n="fig_01">Figure 01: Anatomie des poumons [9].</figcaption>
+                            </figure>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION PIPELINE (CONTENU MIS A JOUR) -->
+            <section id="pipeline" class="tab-content">
+                <div class="content-section">
+                    
+                    <h3 data-i18n="pipe_def_title">Un pipeline Bioinformatique</h3>
+                    <p class="pipeline-text" data-i18n="pipe_def_text">
+                        Un pipeline bioinformatique est une suite structurée d’étapes ou d’outils utilisés pour traiter, analyser et interpréter des données biologiques, souvent de manière automatisée. Dans le cas des données de séquençage, un pipeline permet de passer d’un fichier brut (comme un fichier FASTQ) jusqu’à l’identification et l’annotation de variants génétiques, à travers des étapes comme le contrôle qualité, le nettoyage, l’alignement, et l’appel de variants.
+                    </p>
+
+                    <h3 data-i18n="pipe_obj_title">Objectif du Projet</h3>
+                    <p class="pipeline-text" data-i18n="pipe_obj_text">
+                        L’objectif de ce projet est de concevoir et d’exécuter un pipeline bioinformatique complet et rigoureux pour l’analyse de données de séquençage à haut débit. À partir de l’échantillon public <strong>SRP211816</strong>, il s’agit d’identifier, annoter et interpréter les variants somatiques (SNPs et indels) détectés dans les données RNA-seq, susceptibles d’être associés au développement du cancer du poumon. Parallèlement, le pipeline vise à détecter les gènes différentiellement exprimés entre les tissus tumoraux et les tissus pulmonaires sains adjacents, afin de mettre en évidence des biomarqueurs potentiels et des mécanismes moléculaires impliqués dans la tumorigenèse pulmonaire.
+                    </p>
+
+                    <h3 data-i18n="pipe_desc_title">Description du Pipeline Bioinformatique Réalisé sur Galaxy</h3>
+                    <p class="pipeline-text" data-i18n="pipe_desc_p1">
+                        Pour illustrer concrètement l’analyse transcriptomique dans le contexte du cancer du poumon, notre travail s’est concentré sur l’échantillon public <strong>SRP211816</strong>, issu du projet de recherche <strong>GSE133206</strong>. Cette étude vise à caractériser les altérations transcriptionnelles entre des tissus pulmonaires tumoraux et des tissus sains adjacents.
+                        Les données de l’échantillon <strong>GSM3902321</strong> ont été générées par séquençage à haut débit (RNA-Seq) sur plateforme <strong>Illumina HiSeq 4000</strong>.
+                    </p>
+                    <p class="pipeline-text" data-i18n="pipe_desc_p2">
+                        Notre pipeline bioinformatique, implémenté sur la plateforme <strong>Galaxy Europe</strong>, a été conçu pour traiter ces données brutes et répondre aux objectifs suivants :
+                    </p>
+                    <ul class="styled-list">
+                        <li data-i18n="pipe_goal_1">Identifier les gènes différentiellement exprimés entre les tissus tumoraux et normaux.</li>
+                        <li data-i18n="pipe_goal_2">Explorer les voies oncogéniques activées (ex : EGFR, KRAS).</li>
+                        <li data-i18n="pipe_goal_3">Rechercher les variants somatiques (SNPs, indels) dans les données RNA-Seq.</li>
+                        <li data-i18n="pipe_goal_4">Réaliser une analyse fonctionnelle des processus biologiques perturbés.</li>
+                    </ul>
+
+                    <hr style="margin: 2rem 0;">
+
+                    <!-- ETAPES DU PIPELINE (STYLE PAGE 2) -->
+                    
+                    <div class="pipeline-step">
+                        <h4 data-i18n="step1_title">1. FastQC : Contrôle qualité individuel</h4>
+                        <p data-i18n="step1_desc">
+                            FastQC analyse chaque fichier FASTQ séparément et produit un rapport HTML avec plusieurs graphiques. Son rôle est de vérifier que tes lectures brutes sont de bonne qualité avant le trimming et l’alignement.
+                        </p>
+                        <a href=" .html" target="_blank" title="Cliquez pour ouvrir le rapport complet">
+                            <img 
+                                src="FastQC.png" 
+                                alt="FastQC " 
+                                style="width: 100%; max-width: 900px; height: auto; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); transition: transform 0.3s;"
+                                onmouseover="this.style.transform='scale(1.01)'" 
+                                onmouseout="this.style.transform='scale(1)'"
+                            >
+                        </a>
+                        <div style="font-style: italic; color: #666; font-size: 0.9rem; margin-top: 10px;">
+                            Figure 02 : Rapport FastQC.
+                        </div>
+                    </div>
+                    
+                    <div class="pipeline-step">
+                        <h4 data-i18n="step2_title">2. MultiQC : Rapport global agrégé</h4>
+                        <p data-i18n="step2_desc">
+                            Le rapport MultiQC est un rapport global qui regroupe tous les échantillons présents dans la collection. MultiQC prend tous les rapports FastQC et les regroupe dans un seul rapport interactif.
+                        </p>
+                        <a href=" .html" target="_blank" title="Cliquez pour ouvrir le rapport complet">
+                            <img 
+                                src="MultiQC.png" 
+                                alt="MultiQC " 
+                                style="width: 100%; max-width: 900px; height: auto; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); transition: transform 0.3s;"
+                                onmouseover="this.style.transform='scale(1.01)'" 
+                                onmouseout="this.style.transform='scale(1)'"
+                            >
+                        </a>
+                        <div style="font-style: italic; color: #666; font-size: 0.9rem; margin-top: 10px;">
+                            Figure 03 : General Statistics MultiQC.
+                        </div>
+                    </div>
+
+                    <div class="pipeline-step">
+                        <h4 data-i18n="step3_title">3. Nettoyage (Trimming)</h4>
+                        <p data-i18n="step3_desc">
+                            Les rapports FastQC et MultiQC montrent une excellente qualité de séquençage (Phred > 35, 0 % de N). Un trimming test a été réalisé, mais n’apporte pas d’amélioration significative. L’analyse principale a donc été menée sur les reads bruts, afin de préserver au maximum l’information.
+                        </p>
+                    </div>
+
+                    <div class="pipeline-step">
+                        <h4 data-i18n="step4_title">4. Alignement des Reads (STAR)</h4>
+                        <p data-i18n="step4_desc_1"><strong>Outil :</strong> `STAR` (Spliced Transcripts Alignment to a Reference).</p>
+                        <p data-i18n="step4_desc_2">
+                            C'est un un algorithme d’alignement spécialement conçu pour les données RNA‑seq qui prend les reads FASTQ (normaux et tumoraux), de petits fragments d’environ 150 pb, et les aligne sur le génome humain GRCh38 afin de les placer au bon endroit, d’identifier pour chaque read le gène d’origine, de détecter les jonctions d’épissage, d’améliorer la précision via un 2‑pass mapping et de préparer les données pour les analyses downstream.
+                        </p>
+                        <img src="STAR_Alignment.png" alt="Alignement STAR" onclick="openInfoModal('STAR_Alignment.png', 'Figure : Résultat Alignement STAR.')">
+                    </div>
+
+                    <div class="pipeline-step">
+                        <h4 data-i18n="step5_title">5. Quantification (featureCounts)</h4>
+                        <p data-i18n="step5_desc">
+                            featureCounts est l’outil qui transforme les données alignées en données quantitatives exploitables en parcourant les fichiers BAM produits par STAR, lesquels contiennent les reads alignés sur le génome, afin de déterminer pour chaque read sur quel gène, exon et brin il tombe, s’il est unique ou multi‑mappé, puis de compter le nombre de reads par gène ; pour cela, il utilise un fichier d’annotation GTF (par ex. GENCODE v44) décrivant les positions et la structure des exons, indispensable pour réaliser un comptage correct.
+                        <img src="featureCounts_Matrix.png" alt="Matrice featureCounts" onclick="openInfoModal('featureCounts_Matrix.png', 'Figure : Matrice de comptage featureCounts.')">
+                    </div>
+
+                    <div class="pipeline-step">
+                        <h4 data-i18n="step6_title">6. Analyse Différentielle (DESeq2)</h4>
+                        <p data-i18n="step6_desc_1">
+                            Afin d’identifier les gènes dont l’expression varie significativement entre les échantillons tumoraux et normaux, une analyse a été réalisée avec DESeq2.
+                        </p>
+                        <ul style="margin-left: 20px; margin-bottom: 10px;">
+                            <li data-i18n="step6_list_1"><strong>Normalisation :</strong> Méthode "median of ratios" pour corriger les biais de profondeur et de taille de librairie.</li>
+                            <li data-i18n="step6_list_2"><strong>Modélisation :</strong> Estimation du Log2 Fold Change et de la p-value ajustée (FDR).</li>
+                            <li data-i18n="step6_list_3"><strong>Critère :</strong> FDR < 0.05 pour considérer un gène comme significatif.</li>
+                        </ul>
+                    </div>
+
+                    <hr style="margin: 2rem 0;">
+
+                    <h3 data-i18n="qc_viz_title">Contrôle Qualité et Visualisation (Post-DESeq2)</h3>
+                    
+                    <div class="split-layout">
+                        <div class="text-side">
+                            <h4 data-i18n="pca_title">Analyse en Composantes Principales (PCA)</h4>
+                            <p data-i18n="pca_desc">Montre une séparation nette entre les échantillons tumoraux et normaux, indiquant un profil transcriptionnel distinct.</p>
+                            
+                            <h4 data-i18n="dist_title">Carte de distances inter-échantillons</h4>
+                            <p data-i18n="dist_desc">Confirme une cohérence élevée au sein de chaque condition expérimentale.</p>
+
+                            <h4 data-i18n="volcano_title">MA-plot & Volcano Plot</h4>
+                            <p data-i18n="volcano_desc">Illustrent l’amplitude des changements d’expression et la fiabilité des gènes identifiés.</p>
+                        </div>
+                        <div class="image-side">
+                            <img src="PCA_Plot.png" class="styled-image" alt="PCA Plot" onclick="openInfoModal('PCA_Plot.png', 'Figure : Analyse en Composantes Principales (PCA).')">
+                            <img src="Volcano_Plot.png" class="styled-image" style="margin-top:10px;" alt="Volcano Plot" onclick="openInfoModal('Volcano_Plot.png', 'Figure : Volcano Plot des DEGs.')">
+                        </div>
+                    </div>
+
+                    <hr style="margin: 2rem 0;">
+
+                    <h3 data-i18n="enrichment_title">Analyse d'Enrichissement Fonctionnel</h3>
+                    <p class="pipeline-text" data-i18n="enrichment_intro">
+                        Après l'identification des DEGs, nous avons séparé les gènes en deux listes : <strong>Upregulated</strong> (log2FC > 0) et <strong>Downregulated</strong> (log2FC < 0).
+                    </p>
+
+                    <div class="pipeline-step">
+                        <h4 data-i18n="go_title">Gene Ontology (GO) & Enrichr</h4>
+                        
+                        <p><strong>1. Gènes Sous-exprimés (Downregulated) :</strong></p>
+                        <p data-i18n="go_down_desc">
+                            L'analyse <a href="https://maayanlab.cloud/Enrichr/enrich?dataset=b3092a8a04626145ce727bb1d9b8bcd9" target="_blank" style="color:var(--accent); font-weight:bold;">Enrichr (Lien)</a> montre un impact sur la présentation antigénique (MHC I/II) et la réponse immunitaire. <br>
+                            <em>Interprétation :</em> Évasion immunitaire de la tumeur.
+                        </p>
+                        <img src="GO_Down.png" alt="GO Downregulated" onclick="openInfoModal('GO_Down.png', 'Figure : Enrichissement GO des gènes sous-exprimés.')">
+
+                        <p style="margin-top:20px;"><strong>2. Gènes Surexprimés (Upregulated) :</strong></p>
+                        <p data-i18n="go_up_desc">
+                            L'analyse <a href="https://maayanlab.cloud/Enrichr/enrich?dataset=e48d7e9e630583fb1baee120279ee02c" target="_blank" style="color:var(--accent); font-weight:bold;">Enrichr (Lien)</a> révèle une activation de la voie p53, du métabolisme (Glutamine) et de la biogenèse mitochondriale via <strong>Reactome</strong>.<br>
+                            <em>Interprétation :</em> Phénotype tumoral agressif, prolifération et résistance.
+                        </p>
+                        <img src="GO_Up.png" alt="GO Upregulated" onclick="openInfoModal('GO_Up.png', 'Figure : Enrichissement Reactome des gènes surexprimés.')">
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- SECTION CONCLUSION -->
+            <section id="conclusion" class="tab-content">
+                <div class="content-section">
+                    <h3 data-i18n="nav_conclusion">Conclusion</h3>
+                    <p data-i18n="concl_p1">
+                        Cette analyse d’expression différentielle a permis de mettre en évidence des altérations transcriptionnelles significatives associées à l’état tumoral. Les gènes différentiellement exprimés identifiés constituent une base solide pour des analyses fonctionnelles ultérieures.
+                    </p>
+                    <p data-i18n="concl_p2">
+                        Le pipeline complet, allant du fichier brut à l'interprétation biologique via GO et KEGG, démontre la puissance de la bioinformatique pour comprendre les mécanismes oncogéniques comme l'évasion immunitaire et l'adaptation métabolique.
+                    </p>
+                </div>
+            </section>
+
+            <!-- SECTION RÉFÉRENCES -->
+            <section id="references" class="tab-content">
+                <div class="content-section">
+                    <h3 data-i18n="ref_title">Références</h3>
+                    <ul class="reference-list">
+                        <li class="reference-item">
+                            <span class="reference-num">[1]</span>
+                            Andrews, S. (2010). FastQC: A Quality Control tool for High Throughput Sequence Data.
+                        </li>
+                        <li class="reference-item">
+                            <span class="reference-num">[2]</span>
+                            Dobin, A., et al. (2013). STAR: ultrafast universal RNA-seq aligner. <em>Bioinformatics</em>.
+                        </li>
+                         <li class="reference-item">
+                            <span class="reference-num">[3]</span>
+                            Liao, Y., et al. (2014). featureCounts: an efficient general purpose program for assigning sequence reads to genomic features.
+                        </li>
+                        <li class="reference-item">
+                            <span class="reference-num">[4]</span>
+                            Love, M.I., et al. (2014). Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2. <em>Genome Biology</em>.
+                        </li>
+                    </ul>
+
+                    <!-- Contact Section -->
+                    <h3 class="contact-section-title" data-i18n="contact_title">Contactez-nous</h3>
+                    <div class="contact-grid">
+                        <div class="contact-card">
+                            <span class="contact-name">Benmeggoura Rahma</span>
+                            <a href="mailto:@student.umc.edu.dz" class="contact-email">@student.umc.edu.dz</a>
+                        </div>
+                        <div class="contact-card">
+                            <span class="contact-name">Azara Nourhane</span>
+                            <a href="mailto:@student.umc.edu.dz" class="contact-email">@student.umc.edu.dz</a>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+    // --- 1. FONCTIONS DE NAVIGATION ---
+    function activateTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        const target = document.getElementById(tabId);
+        if(target) target.classList.add('active');
+        
+        document.querySelectorAll('.nav-tabs a').forEach(el => el.classList.remove('active'));
+        const link = document.querySelector(`.nav-tabs a[href="#${tabId}"]`);
+        if(link) link.classList.add('active');
+    }
+
+    // --- 2. FONCTION LOGIN ---
+    function login() {
+        const user = document.getElementById('username').value;
+        const pass = document.getElementById('password').value;
+        if (user === 'etudiant' && pass === 'pipeline') {
+            const loginScreen = document.getElementById('loginScreen');
+            loginScreen.classList.add('hidden');
+            setTimeout(() => {
+                loginScreen.style.display = 'none';
+                const main = document.getElementById('mainContent');
+                main.style.display = 'block';
+                setTimeout(() => { main.classList.add('show'); activateTab('home'); }, 50);
+            }, 500);
+        } else {
+            alert("Erreur : Identifiant ou mot de passe incorrect.");
+        }
+    }
+
+    // --- 3. MODE SOMBRE ---
+    document.getElementById('darkModeToggle').addEventListener('click', () => {
+        document.body.classList.toggle('dark-mode');
+    });
+
+    // --- 4. MODAL IMAGE ---
+    function openInfoModal(imageSrc, caption) {
+        const modal = document.getElementById('infoModal');
+        const modalImg = document.getElementById('infoModalImage');
+        const modalCaption = document.getElementById('infoModalCaption');
+        const modalTitle = document.getElementById('infoModalTitle');
+
+        modal.style.display = "flex";
+        modalImg.src = imageSrc;
+        modalCaption.textContent = caption || '';
+        modalTitle.textContent = "Visualisation";
+    }
+
+    function closeInfoModal() {
+        document.getElementById('infoModal').style.display = "none";
+    }
+    
+    // Fermer le modal en cliquant à l'extérieur
+    window.onclick = function(event) {
+        const modal = document.getElementById('infoModal');
+        if (event.target == modal) {
+            closeInfoModal();
+        }
+    }
+
+    // --- 5. DICTIONNAIRE DE TRADUCTION ---
+    const translations = {
+        fr: {
+            login_title: "Accès au Projet",
+            login_btn: "Se connecter",
+            nav_home: "Accueil", nav_intro: "Généralité", nav_pipeline: "Pipeline Projet", nav_conclusion: "Conclusion", nav_refs: "Références",
+            project_title: "Analyse Transcriptomique du Cancer du Poumon : Pipeline RNA-seq complet.",
+            project_subtitle: "(Analyse comparative du transcriptome entre tissus tumoraux et tissus pulmonaires sains).",
+            presented_by: "Présenté par :", plan_title: "Plan de travail :",
+            plan_1: "Introduction & Généralités sur le Cancer du Poumon",
+            plan_2: "Définitions & Pipeline Bioinformatique",
+            plan_3: "Objectif du Projet (Données SRP211816)",
+            plan_4: "Analyse d'Expression Différentielle (DESeq2)",
+            plan_5: "Contrôle Qualité et Visualisation",
+            plan_6: "Analyse d'Enrichissement Fonctionnel",
+            plan_7: "Conclusion",
+            intro_title: "Introduction",
+            intro_p1: "Le cancer du poumon est la tumeur maligne la plus courante et la principale cause de décès liée au cancer dans le monde entier.",
+            intro_p2: "Les études d'expression génique aident à quantifier les niveaux d'expression des gènes. Les profils peuvent révéler des régulateurs clés ou des DEG.",
+            intro_p4: "Notre étude repose sur l’utilisation de plusieurs outils bioinformatiques pour identifier les DEG associés au cancer bronchique.",
+            def_title: "Définition :",
+            lung_cancer_def: "Le cancer du poumon (bronchique) résulte de la prolifération incontrôlée d'une cellule des bronches, formant une tumeur pouvant métastaser.",
+            fig_01: "Figure 01: Anatomie des poumons [9].",
+            
+            // PIPELINE TRANSLATIONS
+            pipe_def_title: "Un pipeline Bioinformatique",
+            pipe_def_text: "Un pipeline bioinformatique est une suite structurée d’étapes ou d’outils utilisés pour traiter, analyser et interpréter des données biologiques, souvent de manière automatisée. Dans le cas des données de séquençage, un pipeline permet de passer d’un fichier brut (comme un fichier FASTQ) jusqu’à l’identification et l’annotation de variants génétiques, à travers des étapes comme le contrôle qualité, le nettoyage, l’alignement, et l’appel de variants.",
+            pipe_obj_title: "Objectif du Projet",
+            pipe_obj_text: "L’objectif de ce projet est de concevoir et d’exécuter un pipeline bioinformatique complet et rigoureux pour l’analyse de données de séquençage à haut débit. À partir de l’échantillon public SRP211816, il s’agit d’identifier, annoter et interpréter les variants somatiques (SNPs et indels) détectés dans les données RNA seq, susceptibles d’être associés au développement du cancer du poumon. Parallèlement, le pipeline vise à détecter les gènes différentiellement exprimés entre les tissus tumoraux et les tissus pulmonaires sains adjacents, afin de mettre en évidence des biomarqueurs potentiels et des mécanismes moléculaires impliqués dans la tumorigenèse pulmonaire.",
+            pipe_desc_title: "Description du Pipeline sur Galaxy",
+            pipe_desc_p1: "Nous avons utilisé l'échantillon SRP211816 (Projet GSE133206) généré par Illumina HiSeq 4000.",
+            pipe_desc_p2: "Notre pipeline Galaxy répond aux objectifs suivants :",
+            pipe_goal_1: "Identifier les gènes différentiellement exprimés.",
+            pipe_goal_2: "Explorer les voies oncogéniques (EGFR, KRAS).",
+            pipe_goal_3: "Rechercher les variants somatiques.",
+            pipe_goal_4: "Réaliser une analyse fonctionnelle.",
+
+            step1_title: "1. FastQC : Contrôle qualité individuel",
+            step1_desc: "FastQC analyse chaque fichier FASTQ séparément. Il vérifie que les lectures brutes sont de bonne qualité avant trimming.",
+            step1_cap: "Figure : Rapport FastQC.",
+            step2_title: "2. MultiQC : Rapport global agrégé",
+            step2_desc: "MultiQC regroupe tous les rapports FastQC en un seul rapport interactif pour la collection d'échantillons.",
+            step2_cap: "Figure : General Statistics MultiQC.",
+            step3_title: "3. Nettoyage (Trimming)",
+            step3_desc: "Qualité excellente (Phred > 35). Pas de trimming agressif nécessaire pour préserver l'information.",
+            step4_title: "4. Alignement des Reads (STAR)",
+            step4_desc_1: "Outil : STAR.",
+            step4_desc_2: "Algorithme d'alignement RNA-seq vers le génome humain (GRCh38). Gère les jonctions d'épissage.",
+            step5_title: "5. Quantification (featureCounts)",
+            step5_desc: "Compte le nombre de reads par gène en utilisant les fichiers BAM et une annotation GTF.",
+            step6_title: "6. Analyse Différentielle (DESeq2)",
+            step6_desc_1: "Identification des variations significatives d'expression.",
+            step6_list_1: "Normalisation : Median of ratios.",
+            step6_list_2: "Modélisation : Log2 Fold Change & p-value.",
+            step6_list_3: "Critère : FDR < 0.05.",
+            
+            qc_viz_title: "Contrôle Qualité et Visualisation",
+            pca_title: "Analyse en Composantes Principales (PCA)",
+            pca_desc: "Séparation nette entre échantillons tumoraux et normaux.",
+            dist_title: "Distances inter-échantillons",
+            dist_desc: "Cohérence élevée au sein des conditions.",
+            volcano_title: "MA-plot & Volcano Plot",
+            volcano_desc: "Illustrent l'amplitude des changements et la fiabilité.",
+
+            enrichment_title: "Analyse d'Enrichissement Fonctionnel",
+            enrichment_intro: "Séparation des gènes en Upregulated et Downregulated pour l'analyse.",
+            go_title: "Gene Ontology (GO) & Enrichr",
+            go_down_desc: "Les gènes sous-exprimés impactent la présentation antigénique et la réponse immunitaire (Évasion immunitaire).",
+            go_up_desc: "Les gènes surexprimés activent la voie p53, le métabolisme et la biogenèse mitochondriale (Phénotype agressif).",
+
+            nav_conclusion: "Conclusion",
+            concl_p1: "Mise en évidence d'altérations transcriptionnelles significatives associées à l'état tumoral.",
+            concl_p2: "Le pipeline démontre la puissance de la bioinformatique pour comprendre les mécanismes oncogéniques.",
+            ref_title: "Références", contact_title: "Contactez-nous"
+        },
+        en: {
+            login_title: "Project Access",
+            login_btn: "Login",
+            nav_home: "Home", nav_intro: "Overview", nav_pipeline: "Pipeline", nav_conclusion: "Conclusion", nav_refs: "References",
+            project_title: "Lung Cancer Transcriptomic Analysis: Complete RNA-seq Pipeline.",
+            project_subtitle: "(Comparative transcriptome analysis between tumor and healthy lung tissues).",
+            presented_by: "Presented by:", plan_title: "Work Plan:",
+            plan_1: "Introduction & Lung Cancer Overview",
+            plan_2: "Definitions & Bioinformatics Pipeline",
+            plan_3: "Project Objective (Dataset SRP211816)",
+            plan_4: "Differential Expression Analysis (DESeq2)",
+            plan_5: "Quality Control and Visualization",
+            plan_6: "Functional Enrichment Analysis",
+            plan_7: "Conclusion",
+            intro_title: "Introduction",
+            intro_p1: "Lung cancer is the most common malignant tumor and leading cause of cancer death worldwide.",
+            intro_p2: "Gene expression studies help quantify expression levels. Profiles can reveal key regulators or DEGs.",
+            intro_p4: "Our study relies on bioinformatics tools to identify DEGs associated with bronchial cancer.",
+            def_title: "Definition:",
+            lung_cancer_def: "Lung cancer results from uncontrolled proliferation of bronchial cells, forming a tumor capable of metastasis.",
+            fig_01: "Figure 01: Lung anatomy [9].",
+            
+            // PIPELINE TRANSLATIONS EN
+            pipe_def_title: "A Bioinformatics Pipeline",
+            pipe_def_text: "A bioinformatics pipeline is a structured suite of steps or tools used to process biological data...",
+            pipe_obj_title: "Project Objective",
+            pipe_obj_text: "The goal is to design a rigorous pipeline for high-throughput sequencing analysis. Using sample SRP211816, we identify variants and differentially expressed genes...",
+            pipe_desc_title: "Pipeline Description on Galaxy",
+            pipe_desc_p1: "We used sample SRP211816 (Project GSE133206) generated by Illumina HiSeq 4000.",
+            pipe_desc_p2: "Our Galaxy pipeline addresses the following objectives:",
+            pipe_goal_1: "Identify differentially expressed genes.",
+            pipe_goal_2: "Explore oncogenic pathways (EGFR, KRAS).",
+            pipe_goal_3: "Search for somatic variants.",
+            pipe_goal_4: "Perform functional analysis.",
+
+            step1_title: "1. FastQC: Individual QC",
+            step1_desc: "FastQC analyzes each FASTQ file separately. It checks raw read quality before trimming.",
+            step1_cap: "Figure: FastQC Report.",
+            step2_title: "2. MultiQC: Aggregated Report",
+            step2_desc: "MultiQC aggregates all FastQC reports into a single interactive report for the sample collection.",
+            step2_cap: "Figure: MultiQC General Statistics.",
+            step3_title: "3. Cleaning (Trimming)",
+            step3_desc: "Excellent quality (Phred > 35). No aggressive trimming needed to preserve information.",
+            step4_title: "4. Read Alignment (STAR)",
+            step4_desc_1: "Tool: STAR.",
+            step4_desc_2: "RNA-seq alignment algorithm to human genome (GRCh38). Handles splice junctions.",
+            step5_title: "5. Quantification (featureCounts)",
+            step5_desc: "Counts reads per gene using BAM files and GTF annotation.",
+            step6_title: "6. Differential Analysis (DESeq2)",
+            step6_desc_1: "Identification of significant expression variations.",
+            step6_list_1: "Normalization: Median of ratios.",
+            step6_list_2: "Modeling: Log2 Fold Change & p-value.",
+            step6_list_3: "Criteria: FDR < 0.05.",
+            
+            qc_viz_title: "Quality Control & Visualization",
+            pca_title: "Principal Component Analysis (PCA)",
+            pca_desc: "Clear separation between tumor and normal samples.",
+            dist_title: "Inter-sample Distances",
+            dist_desc: "High consistency within conditions.",
+            volcano_title: "MA-plot & Volcano Plot",
+            volcano_desc: "Illustrate magnitude of changes and reliability.",
+
+            enrichment_title: "Functional Enrichment Analysis",
+            enrichment_intro: "Genes separated into Upregulated and Downregulated for analysis.",
+            go_title: "Gene Ontology (GO) & Enrichr",
+            go_down_desc: "Downregulated genes impact antigen presentation and immune response (Immune Evasion).",
+            go_up_desc: "Upregulated genes activate p53 pathway, metabolism, and mitochondrial biogenesis (Aggressive Phenotype).",
+
+            nav_conclusion: "Conclusion",
+            concl_p1: "Highlighted significant transcriptional alterations associated with tumor state.",
+            concl_p2: "The pipeline demonstrates the power of bioinformatics in understanding oncogenic mechanisms.",
+            ref_title: "References", contact_title: "Contact Us"
+        }
+    };
+
+    function changeLanguage(lang) {
+        const elements = document.querySelectorAll('[data-i18n]');
+        elements.forEach(el => {
+            const key = el.getAttribute('data-i18n');
+            if (translations[lang] && translations[lang][key]) {
+                if (el.tagName === 'INPUT' || (el.tagName === 'BUTTON' && el.children.length === 0)) {
+                    el.textContent = translations[lang][key];
+                } else {
+                    el.innerHTML = translations[lang][key];
+                }
+            }
+        });
+    }
+    </script>
+</body>
+</html>
